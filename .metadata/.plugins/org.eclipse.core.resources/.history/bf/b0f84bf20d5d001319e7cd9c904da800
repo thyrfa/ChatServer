@@ -1,0 +1,173 @@
+package framework.info.chatter.server;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+
+//stream corrupted on bad login
+
+public class KnockKnockServer {
+	private HashMap<Integer, ServerThread> threads= new HashMap<Integer, ServerThread>(100);
+	private ServerSocket serverSocket= null;
+	private HashMap<Integer, Socket> clients= new HashMap<Integer, Socket>(100);
+	private HashMap<String, String> logins=new HashMap<String, String>(100);
+	private HashMap<String, Integer> serials= new HashMap<String, Integer>(100);
+	private HashMap<Integer, String> revserials= new HashMap<Integer, String>(100);
+	private HashMap<Integer, Scr> clientrecords= new HashMap<Integer, Scr>(100);
+	
+	public KnockKnockServer() throws IOException{
+		try{
+			serverSocket=new ServerSocket(6667);
+		}
+		catch(Exception e){
+			System.out.println("6667 occupied");
+			System.exit(1);
+		}
+		logins.put("test1", "pw");
+		serials.put("test1", 0);
+		revserials.put(0, "test1");
+		logins.put("test2", "pw");
+		serials.put("test2", 1);
+		revserials.put(1, "test2");
+		clientrecords.put(0, new Scr("test1"));
+		clientrecords.put(1, new Scr("test2"));
+		clientrecords.get(0).newContact("test2", 1);
+		clientrecords.get(1).newContact("test1", 0);
+		clientrecords.put(2, new Scr("test3"));
+		logins.put("test3", "pw");
+		serials.put("test3", 2);
+		revserials.put(2, "test3");
+		while(true){
+			try {
+				this.accept(serverSocket.accept());
+			} catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    	    try
+    	    {
+    	        Thread.sleep(50);
+    	    }
+    	    catch (Exception e)
+    	    {
+    	        e.printStackTrace();
+    	    }
+		}
+		
+	}
+	
+	protected void input(String str, int i, int t){
+		try {
+			if(threads.get(t)!=null){
+				threads.get(t).pass(str, i);
+			}
+			else{
+				clientrecords.get(t).newMessage(i, str);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		if (str.equals("shutitdownboys")){
+			System.exit(0);
+		}
+	}
+	protected int getID(String str){
+		return serials.get(str);
+	}
+	protected boolean[] onlineCheck(Object[] names){
+		boolean[] returner=new boolean[names.length];
+		for (int i=0; i<names.length;i++){
+			int n= serials.get(names[i]);
+			returner[i]=threads.keySet().contains(n);
+		}
+		return returner;
+	}
+	protected void recordUpdate(Scr record, int index){
+		clientrecords.put(index, record);
+		clients.remove(index);
+		threads.remove(index);
+	}
+	protected boolean validContact(String contact){
+		return (logins.keySet().contains(contact));
+	}
+	protected void clientConnect(int t, String str) throws IOException{
+		clientrecords.get(serials.get(str)).newContact(revserials.get(t), t);
+		if (threads.get(serials.get(str))!=null){
+			threads.get(serials.get(str)).newContact(revserials.get(t), t);
+		}
+	}
+	protected void accept(Socket socket) throws IOException, ClassNotFoundException{
+    	OutputStream buffs= new BufferedOutputStream(socket.getOutputStream());
+    	ObjectOutputStream out= new ObjectOutputStream(buffs);
+    	out.flush();
+    	BufferedInputStream buff= new BufferedInputStream(socket.getInputStream());
+    	ObjectInputStream in = new ObjectInputStream(buff);
+    	Object loger;
+    	loger=in.readObject();
+		String log=loger.toString();
+    	int userindex=serials.get(log.substring(0, log.indexOf("!@pass!@")));
+    	if (!(logins.get(log.substring(0, log.indexOf("!@pass!@"))).equals(log.substring(log.indexOf("!@pass!@")+8)))){
+    		out.writeObject("badLogon");
+    		out.flush();
+    		accept(socket, in, out, buff);
+    		in=null;
+    		out=null;
+    	}
+    	out.writeObject(clientrecords.get(userindex));
+    	out.flush();
+		clients.put(userindex, socket);
+		threads.put(userindex, new ServerThread(socket, this, userindex, clientrecords.get(userindex), out, in, buff));
+		for (int n=0; n<clients.size(); n++){
+			if (clientrecords.get(userindex).revids.containsKey(clients.keySet().toArray()[n])){
+				threads.get(clients.keySet().toArray()[n]).onlineCheck();
+			}
+		}
+		threads.get(userindex).start();
+		threads.get(userindex).onlineCheck();
+		in=null;
+		out=null;
+	}
+	protected void accept(Socket socket, ObjectInputStream in, ObjectOutputStream out, BufferedInputStream buff) throws IOException, ClassNotFoundException{
+    	boolean badlogin=false;
+		Object loger;
+    	loger=in.readObject();
+		String log=loger.toString();
+		int userindex=0;
+		if (serials.containsKey(log.substring(0, log.indexOf("!@pass!@")))){
+			int userindex=serials.get(log.substring(0, log.indexOf("!@pass!@")));
+		}
+		else{
+			badlogin=true;
+		}
+    	if (badlogin||!(logins.get(log.substring(0, log.indexOf("!@pass!@"))).equals(log.substring(log.indexOf("!@pass!@")+8)))){
+    		out.writeObject("badLogon");
+    		out.flush();
+    		accept(socket);
+    		in=null;
+    		out=null;
+    	}
+    	out.writeObject(clientrecords.get(userindex));
+    	out.flush();
+		clients.put(userindex, socket);
+		threads.put(userindex, new ServerThread(socket, this, userindex, clientrecords.get(userindex), out, in, buff));
+		for (int n=0; n<clients.size(); n++){
+			if (clientrecords.get(userindex).revids.containsKey(clients.keySet().toArray()[n])){
+				threads.get(clients.keySet().toArray()[n]).onlineCheck();
+			}
+		}
+		threads.get(userindex).start();
+		threads.get(userindex).onlineCheck();
+		in=null;
+		out=null;
+	}
+	public static void main(String[] args)throws IOException, InterruptedException {
+		new KnockKnockServer();
+	}
+}

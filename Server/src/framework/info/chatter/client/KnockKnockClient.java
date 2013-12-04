@@ -114,6 +114,8 @@ public class KnockKnockClient implements ActionListener, WindowListener, KeyList
         GridBagConstraints c= new GridBagConstraints();
         c.gridx=0;
         c.gridy=0;
+        c.weightx=1;
+        c.weighty=1;
         frame.addWindowListener(this);
         frame.addKeyListener(this);
         input.addKeyListener(this);
@@ -123,16 +125,21 @@ public class KnockKnockClient implements ActionListener, WindowListener, KeyList
         scroll = new JScrollPane (text, 
         		   JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.addKeyListener(this);
-
+        c.anchor=GridBagConstraints.PAGE_START;
         chatter.add(scroll, c);
+        c.anchor=GridBagConstraints.PAGE_START;
         c.gridy++;
         chatter.add(input, c);
         c.gridx++;
+        c.anchor=GridBagConstraints.PAGE_END;
         chatter.add(button);
         c.gridx=0;
         c.gridy=0;
+        c.anchor=GridBagConstraints.LINE_START;
         frame.add(social, c);
         c.gridx++;
+        c.anchor=GridBagConstraints.PAGE_START;
+        System.out.println(chatter.getMinimumSize());
         frame.add(chatter, c);
         frame.pack();
         button.setActionCommand("send");

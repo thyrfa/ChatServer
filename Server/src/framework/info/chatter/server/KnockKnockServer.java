@@ -104,6 +104,7 @@ public class KnockKnockServer {
 		}
 	}
 	protected void accept(Socket socket) throws IOException, ClassNotFoundException{
+		boolean badlogin=false;
     	OutputStream buffs= new BufferedOutputStream(socket.getOutputStream());
     	ObjectOutputStream out= new ObjectOutputStream(buffs);
     	out.flush();
@@ -112,11 +113,17 @@ public class KnockKnockServer {
     	Object loger;
     	loger=in.readObject();
 		String log=loger.toString();
-    	int userindex=serials.get(log.substring(0, log.indexOf("!@pass!@")));
-    	if (!(logins.get(log.substring(0, log.indexOf("!@pass!@"))).equals(log.substring(log.indexOf("!@pass!@")+8)))){
+		int userindex=0;
+		if (serials.containsKey(log.substring(0, log.indexOf("!@pass!@")))){
+			userindex=serials.get(log.substring(0, log.indexOf("!@pass!@")));
+		}
+		else{
+			badlogin=true;
+		}
+    	if (badlogin||!(logins.get(log.substring(0, log.indexOf("!@pass!@"))).equals(log.substring(log.indexOf("!@pass!@")+8)))){
     		out.writeObject("badLogon");
     		out.flush();
-    		accept(socket);
+    		accept(socket, in, out, buff);
     		in=null;
     		out=null;
     	}
@@ -135,11 +142,18 @@ public class KnockKnockServer {
 		out=null;
 	}
 	protected void accept(Socket socket, ObjectInputStream in, ObjectOutputStream out, BufferedInputStream buff) throws IOException, ClassNotFoundException{
-    	Object loger;
+    	boolean badlogin=false;
+		Object loger;
     	loger=in.readObject();
 		String log=loger.toString();
-    	int userindex=serials.get(log.substring(0, log.indexOf("!@pass!@")));
-    	if (!(logins.get(log.substring(0, log.indexOf("!@pass!@"))).equals(log.substring(log.indexOf("!@pass!@")+8)))){
+		int userindex=0;
+		if (serials.containsKey(log.substring(0, log.indexOf("!@pass!@")))){
+			userindex=serials.get(log.substring(0, log.indexOf("!@pass!@")));
+		}
+		else{
+			badlogin=true;
+		}
+    	if (badlogin||!(logins.get(log.substring(0, log.indexOf("!@pass!@"))).equals(log.substring(log.indexOf("!@pass!@")+8)))){
     		out.writeObject("badLogon");
     		out.flush();
     		accept(socket);
